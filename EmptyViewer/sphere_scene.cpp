@@ -16,13 +16,17 @@ using namespace glm;
 
 class sphere_scene
 {
-
 public:
+    sphere_scene(vec3 Ka, vec3 Kd, vec3 Ks, int p) : Ka(Ka), Kd(Kd), Ks(Ks), p(p) {}
+
     int     gNumVertices = 0;    // Number of 3D vertices.
     int     gNumTriangles = 0;    // Number of triangles.
     int* gIndexBuffer = NULL; // Vertex indices for the triangles.
 
     float* gVertexBuffer = NULL; // Vertex location for the triangles.
+
+    vec3 Ka, Kd, Ks;
+    int p;
 
     void clear() {
         delete[] gVertexBuffer;
@@ -118,7 +122,7 @@ public:
         // add 1 to k0, k1, and k2.
     }
 
-    void process_triangle(mat4 MVP,mat4 model, int Width, int Height,vec3* v0, vec3* v1, vec3* v2, vec3* screen0, vec3* screen1, vec3* screen2, int index) {
+    void process_triangle(mat4 MVP,mat4 model, int Width, int Height,vec3* v0, vec3* v1, vec3* v2, vec3* screen0, vec3* screen1, vec3* screen2, float*invW0, float* invW1, float* invW2, int index) {
 
         int k0 = gIndexBuffer[3 * index + 0];
         int k1 = gIndexBuffer[3 * index + 1];
@@ -136,6 +140,11 @@ public:
         vec4 clip0 = MVP * vec4(p0, 1.0f);
         vec4 clip1 = MVP * vec4(p1, 1.0f);
         vec4 clip2 = MVP * vec4(p2, 1.0f);
+
+        // 이건 clip space 결과에서 바로 계산해야 함
+        *invW0 = 1.0f / clip0.w;
+        *invW1 = 1.0f / clip1.w;
+        *invW2 = 1.0f / clip2.w;
 
         // Viewport Transform 계산
         mat4 vp(0.0f);
