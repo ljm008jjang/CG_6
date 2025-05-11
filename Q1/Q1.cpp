@@ -38,7 +38,7 @@ std::vector<float> OutputImage;
 Camera camera(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), 45.0f, (float)Width / (float)Height, -0.1f, -1000.0f);
 std::vector<float> DepthBuffer;
 
-sphere_scene sphere(vec3(0,1,0), vec3(0,0.5f,0), vec3(0.5f,0.5f,0.5f), 32);
+sphere_scene sphere(vec3(0, 1, 0), vec3(0, 0.5f, 0), vec3(0.5f, 0.5f, 0.5f), 32, vec3(0, 0, -7), 2);
 std::vector<sphere_scene> sceneObjects;
 
 Light light(vec3(-4, 4, -3));
@@ -48,7 +48,7 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 	// cross product
 	auto edge = [](const vec2& a, const vec2& b, const vec2& c) {
 		return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
-	};
+		};
 
 	vec2 p0 = screen0.xy();
 	vec2 p1 = screen1.xy();
@@ -114,7 +114,7 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 				int idx = y * Width + x;
 				if (z < DepthBuffer[idx]) {
 					DepthBuffer[idx] = z;
-				
+
 
 					OutputImage[idx * 3 + 0] = result.r;
 					OutputImage[idx * 3 + 1] = result.g;
@@ -163,7 +163,7 @@ void render()
 	}
 
 	// 1. Model Transform
-	mat4 model = translate(mat4(1.0f), vec3(0, 0, -7)) * scale(mat4(1.0f), vec3(2.0f));
+	//mat4 model = translate(mat4(1.0f), vec3(0, 0, -7)) * scale(mat4(1.0f), vec3(2.0f));
 
 	// 2. View Transform (Identity)
 	mat4 view = camera.getViewMatrix();
@@ -172,11 +172,13 @@ void render()
 	// 직접 만든 Perspective 행렬 (OpenGL 호환 버전)
 	mat4 proj = camera.getProjectionMatrix();
 
-	// 4. 최종 MVP
-	mat4 MVP = proj * view * model;
+	mat4 VP = proj * view;
 
 	for (sphere_scene& sceneObject : sceneObjects) {
+		mat4 model = sceneObject.get_model_transform();
+		mat4 MVP = VP * model;
 		for (int i = 0; i < sceneObject.gNumTriangles; ++i) {
+
 			vec3 v0, v1, v2;
 			vec3 screen0, screen1, screen2;
 			float invW0, invW1, invW2;
@@ -198,7 +200,7 @@ void render()
 				continue; // back-face culling
 			}
 			//레스터링
-			rasterize_triangle(screen0, screen1, screen2,v0,v1,v2, invW0, invW1, invW2, faceNormal, light, sceneObject);
+			rasterize_triangle(screen0, screen1, screen2, v0, v1, v2, invW0, invW1, invW2, faceNormal, light, sceneObject);
 		}
 	}
 
@@ -255,7 +257,7 @@ int main(int argc, char* argv[])
 		return -1;
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(Width, Height, "OpenGL Viewer", NULL, NULL);
+	window = glfwCreateWindow(Width, Height, "Q1", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();

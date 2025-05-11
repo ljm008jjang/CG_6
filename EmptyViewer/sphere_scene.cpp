@@ -17,7 +17,7 @@ using namespace glm;
 class sphere_scene
 {
 public:
-    sphere_scene(vec3 Ka, vec3 Kd, vec3 Ks, int p) : Ka(Ka), Kd(Kd), Ks(Ks), p(p) {}
+    sphere_scene(vec3 Ka, vec3 Kd, vec3 Ks, int p, vec3 position, float scale) : Ka(Ka), Kd(Kd), Ks(Ks), p(p), position(position), scale(scale) {}
 
     int     gNumVertices = 0;    // Number of 3D vertices.
     int     gNumTriangles = 0;    // Number of triangles.
@@ -27,6 +27,9 @@ public:
 
     vec3 Ka, Kd, Ks;
     int p;
+
+    vec3 position;
+    float scale;
 
     void clear() {
         delete[] gVertexBuffer;
@@ -160,5 +163,11 @@ public:
         *screen1 = vec3(vp * (clip1 / clip1.w));
         *screen2 = vec3(vp * (clip2 / clip2.w));
     }
+
+	mat4 get_model_transform()
+	{
+		mat4 model = translate(mat4(1.0f), position) * glm::scale(mat4(1.0f), vec3(scale));
+		return model;
+	}
     
 };

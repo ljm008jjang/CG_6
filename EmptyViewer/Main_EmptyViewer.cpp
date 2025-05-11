@@ -38,7 +38,7 @@ std::vector<float> OutputImage;
 Camera camera(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), 45.0f, (float)Width / (float)Height, -0.1f, -1000.0f);
 std::vector<float> DepthBuffer;
 
-sphere_scene sphere(vec3(0, 1, 0), vec3(0, 0.5f, 0), vec3(0.5f, 0.5f, 0.5f), 32);
+sphere_scene sphere(vec3(0, 1, 0), vec3(0, 0.5f, 0), vec3(0.5f, 0.5f, 0.5f), 32, vec3(0, 0, -7), 2);
 std::vector<sphere_scene> sceneObjects;
 
 Light light(vec3(-4, 4, -3));
@@ -48,7 +48,7 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 	// cross product
 	auto edge = [](const vec2& a, const vec2& b, const vec2& c) {
 		return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
-	};
+		};
 
 	vec2 p0 = screen0.xy();
 	vec2 p1 = screen1.xy();
@@ -80,6 +80,29 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 	float beta = startBeta;
 	float gamma = startGamma;
 
+
+	vec3 point = (v0 + v1 + v2) / 3.0f;
+
+	vec3 v = normalize(camera.e - point);  // view direction
+	vec3 l = normalize(light.pos - point);  // light direction
+
+	vec3 h = normalize(v + l);  // half vector
+
+	// Phong shading
+	vec3 La = sphere.Ka * 0.2f;
+	vec3 Ld = sphere.Kd * light.illumination * std::max(0.0f, dot(normal, l));
+	vec3 Ls = sphere.Ks * light.illumination * pow(std::max(0.0f, dot(normal, h)), float(sphere.p));
+
+	vec3 result = La + Ld + Ls;
+
+	float colorGamma = 2.2f;
+	float invGamma = 1.0f / colorGamma;
+
+	// Apply gamma correction
+	result.r = pow(result.r, invGamma);
+	result.g = pow(result.g, invGamma);
+	result.b = pow(result.b, invGamma);
+
 	for (int y = minY; y <= maxY; ++y) {
 		for (int x = minX; x <= maxX; ++x) {
 			if (beta > 0 && gamma > 0 && beta + gamma < 1) {
@@ -91,28 +114,6 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 				int idx = y * Width + x;
 				if (z < DepthBuffer[idx]) {
 					DepthBuffer[idx] = z;
-
-					vec3 point = beta * v0 + gamma * v1 + (1.0f - beta - gamma) * v2;
-
-					//빛을 고려 안함.
-					float la = 0.2f;
-					vec3 La = sphere.Ka * la;
-
-					//TODO make v, l
-					vec3 v = -normalize(camera.e - point);
-					vec3 l = normalize(light.pos - point);
-
-					vec3 Ld = sphere.Kd * (light.illumination) * glm::max(0.0f, dot(normal, l));
-
-					vec3 h = normalize(v + l);
-
-					float tmp = glm::max(0.0f, dot(normal, h));
-
-					float powTmp = pow(tmp, sphere.p);
-
-					vec3 Ls = sphere.Ks * (light.illumination) * powTmp;
-
-					vec3 result = La + Ld + Ls;
 
 
 					OutputImage[idx * 3 + 0] = result.r;
@@ -161,9 +162,6 @@ void render()
 		sceneObject.create_scene();
 	}
 
-	// 1. Model Transform
-	mat4 model = translate(mat4(1.0f), vec3(0, 0, -7)) * scale(mat4(1.0f), vec3(2.0f));
-
 	// 2. View Transform (Identity)
 	mat4 view = camera.getViewMatrix();
 
@@ -172,13 +170,14 @@ void render()
 	mat4 proj = camera.getProjectionMatrix();
 
 	// 4. 최종 MVP
-	mat4 MVP = proj * view * model;
-
-	//적용X
-	vec3 lightDir = normalize(vec3(1, 1, 1));
+	mat4 MVP = proj * view;
 
 	for (sphere_scene& sceneObject : sceneObjects) {
 		for (int i = 0; i < sceneObject.gNumTriangles; ++i) {
+			// 1. Model Transform
+			mat4 model = sceneObject.get_model_transform();
+			MVP = MVP * model;
+
 			vec3 v0, v1, v2;
 			vec3 screen0, screen1, screen2;
 			float invW0, invW1, invW2;
@@ -196,11 +195,11 @@ void render()
 			vec3 center = (v0 + v1 + v2) / 3.0f;
 			vec3 viewDir = normalize(camera.e - center);
 
-			if (dot(faceNormal, viewDir) > 0) {
+			if (dot(faceNormal, viewDir) < 0) {
 				continue; // back-face culling
 			}
 			//레스터링
-			rasterize_triangle(screen0, screen1, screen2, v0, v1, v2, invW0, invW1, invW2, normalize(cross(v1 - v0, v2 - v0)), lightDir, sceneObject);
+			rasterize_triangle(screen0, screen1, screen2, v0, v1, v2, invW0, invW1, invW2, faceNormal, light, sceneObject);
 		}
 	}
 
@@ -257,7 +256,7 @@ int main(int argc, char* argv[])
 		return -1;
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(Width, Height, "OpenGL Viewer", NULL, NULL);
+	window = glfwCreateWindow(Width, Height, "Q2", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();

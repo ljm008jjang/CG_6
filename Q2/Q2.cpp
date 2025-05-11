@@ -23,6 +23,7 @@
 #include "Camera.h"
 #include "Plane.h"
 #include "Light.h"
+#include "sphere_scene.cpp"
 
 using namespace glm;
 
@@ -33,15 +34,144 @@ int Width = 512;
 int Height = 512;
 std::vector<float> OutputImage;
 // -------------------------------------------------
-Scene scene;
+//Camera camera(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), 45.0f, (float)Width / (float)Height, -0.1f, -1000.0f);
+Camera camera(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), 45.0f, (float)Width / (float)Height, -0.1f, -1000.0f);
+std::vector<float> DepthBuffer;
 
-Camera camera(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), 45.0f, (float)Width / (float)Height, 0.1f, 100.0f);
+sphere_scene sphere(vec3(0, 1, 0), vec3(0, 0.5f, 0), vec3(0.5f, 0.5f, 0.5f), 32, vec3(0,0,-7), 2);
+std::vector<sphere_scene> sceneObjects;
+
 Light light(vec3(-4, 4, -3));
 
-Plane plane(vec3(0.2f, 0.2f, 0.2f), vec3(1, 1, 1), vec3(0, 0, 0), 0, vec3(0.0f, 1.0f, 0.0f), -2.0f);
-Sphere sphere1(vec3(0.2f, 0, 0), vec3(1, 0, 0), vec3(0, 0, 0), 0, vec3(-4, 0, -7), 1);
-Sphere sphere2(vec3(0, 0.2f, 0), vec3(0, 0.5f, 0), vec3(0.5f, 0.5f, 0.5f), 32, vec3(0, 0, -7), 2);
-Sphere sphere3(vec3(0, 0, 0.2f), vec3(0, 0, 1), vec3(0, 0, 0), 0, vec3(4, 0, -7), 1);
+//helped by chatGPT
+void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& screen2, const vec3& v0, const vec3& v1, const vec3& v2, const float& invW0, const float& invW1, const float& invW2, const vec3& normal, const Light& light, const sphere_scene& sphere) {
+	// cross product
+	auto edge = [](const vec2& a, const vec2& b, const vec2& c) {
+		return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
+		};
+
+	vec2 p0 = screen0.xy();
+	vec2 p1 = screen1.xy();
+	vec2 p2 = screen2.xy();
+
+	float area = edge(p0, p1, p2);
+	if (area == 0) return;
+
+	int minX = std::max(0, (int)floor(min({ p0.x, p1.x, p2.x })));
+	int maxX = std::min(Width - 1, (int)ceil(max({ p0.x, p1.x, p2.x })));
+	int minY = std::max(0, (int)floor(min({ p0.y, p1.y, p2.y })));
+	int maxY = std::min(Height - 1, (int)ceil(max({ p0.y, p1.y, p2.y })));
+
+	float invArea = 1.0f / area;
+	vec2 start(minX + 0.5f, minY + 0.5f);
+	// alpha, beta, gamma는 모두 삼각형의 넓이의 비율과 관련이 있다.
+	// 주석처리된 공식과 사용된 공식은 같은 의미.
+	// 수업 자료는 후자 공식이지만, 코드의 편의성을 위해 앞 공식을 사용한다.
+	float startBeta = edge(p2, p0, start) * invArea; //(((p0.y - p2.y) * minX + (p2.x - p0.x) * minY + p0.x * p2.y - p2.x * p0.y)) / ((p0.y - p2.y) * p1.x + (p2.x - p0.x) * p1.y + p0.x * p2.y - p2.x * p0.y);
+	float startGamma = edge(p0, p1, start) * invArea;//(((p0.y - p1.y) * minX + (p1.x - p0.x) * minY + p0.x * p1.y - p1.x * p0.y)) / ((p0.y - p1.y) * p2.x + (p1.x - p0.x) * p2.y + p0.x * p1.y - p1.x * p0.y);
+	float n = (minX - minX) + 1;
+
+	float betaX = (p0.y - p2.y) * invArea;
+	float gammaX = (p1.y - p0.y) * invArea;
+
+	float betaY = ((p2.x - p0.x) * invArea);
+	float gammaY = ((p0.x - p1.x) * invArea);
+
+	float beta = startBeta;
+	float gamma = startGamma;
+
+	vec3 resultColor[3];
+	vec3 point[3];
+	point[0] = v0;
+	point[1] = v1;
+	point[2] = v2;
+	for (int i = 0; i < 3; i++) {
+		resultColor[i] = vec3(0.0f);
+
+		vec3 v = normalize(camera.e - point[i]);  // view direction
+		vec3 l = normalize(light.pos - point[i]);  // light direction
+
+		vec3 h = normalize(v + l);  // half vector
+		vec3 nVec = normalize(point[i] - sphere.position);
+
+		// Phong shading
+		vec3 La = sphere.Ka * 0.2f;
+		vec3 Ld = sphere.Kd * light.illumination * std::max(0.0f, dot(nVec, l));
+		vec3 Ls = sphere.Ks * light.illumination * pow(std::max(0.0f, dot(nVec, h)), float(sphere.p));
+
+		resultColor[i] = La + Ld + Ls;
+
+		float colorGamma = 2.2f;
+		float invGamma = 1.0f / colorGamma;
+
+		// Apply gamma correction
+		resultColor[i].r = pow(resultColor[i].r, invGamma);
+		resultColor[i].g = pow(resultColor[i].g, invGamma);
+		resultColor[i].b = pow(resultColor[i].b, invGamma);
+	}
+
+
+
+	//vec3 point = (v0 + v1 + v2) / 3.0f;
+
+	//vec3 v = normalize(camera.e - point);  // view direction
+	//vec3 l = normalize(light.pos - point);  // light direction
+
+	//vec3 h = normalize(v + l);  // half vector
+
+	//// Phong shading
+	//vec3 La = sphere.Ka * 0.2f;
+	//vec3 Ld = sphere.Kd * light.illumination * std::max(0.0f, dot(normal, l));
+	//vec3 Ls = sphere.Ks * light.illumination * pow(std::max(0.0f, dot(normal, h)), float(sphere.p));
+
+	//vec3 result = La + Ld + Ls;
+
+	//float colorGamma = 2.2f;
+	//float invGamma = 1.0f / colorGamma;
+
+	//// Apply gamma correction
+	//result.r = pow(result.r, invGamma);
+	//result.g = pow(result.g, invGamma);
+	//result.b = pow(result.b, invGamma);
+
+	for (int y = minY; y <= maxY; ++y) {
+		for (int x = minX; x <= maxX; ++x) {
+			if (beta > 0 && gamma > 0 && beta + gamma < 1) {
+
+				// 보간 (β, γ는 이미 화면 좌표 기준에서 구해졌다고 가정)
+				float invZ = beta * invW0 + gamma * invW1 + (1 - beta - gamma) * invW2;
+				float z = 1.0f / invZ; // perspective-correct z
+				//float z = (screen0.z * beta + screen1.z * gamma + screen2.z * (1 - beta - gamma));
+				int idx = y * Width + x;
+				if (z < DepthBuffer[idx]) {
+					DepthBuffer[idx] = z;
+
+
+					vec3 result = resultColor[0] * (1 - beta - gamma) + resultColor[1] * beta + resultColor[2] * gamma;
+
+					OutputImage[idx * 3 + 0] = result.r;
+					OutputImage[idx * 3 + 1] = result.g;
+					OutputImage[idx * 3 + 2] = result.b;
+				}
+			}
+			// x에 대한 β, γ 갱신
+			beta += betaX;
+			gamma += gammaX;
+		}
+
+		// y에 대한 β, γ 갱신
+		startBeta += betaY;
+		startGamma += gammaY;
+
+		// 다음 행을 위한 초기값 설정
+		beta = startBeta;
+		gamma = startGamma;
+
+		// 수업 자료의 sudo코드를 그대로 사용하면 오류 발생.
+		// 부동소수점이 문제이지 않을까 싶다.
+	}
+}
+
 
 
 void render()
@@ -52,42 +182,72 @@ void render()
 	//Instead we draw to another buffer and copy this to the 
 	//framebuffer using glDrawPixels(...) every refresh
 	OutputImage.clear();
+	DepthBuffer.clear();
+	sceneObjects.clear();
 
-	//setting Scene
-	scene.clear();
-	scene.addSurface(&plane);
-	scene.addSurface(&sphere1);
-	scene.addSurface(&sphere2);
-	scene.addSurface(&sphere3);
-	scene.addLight(&light);
+	OutputImage.assign(Width * Height * 3, 0.0f);
+	DepthBuffer.assign(Width * Height, 1e9f);
+	sceneObjects.push_back(sphere);
 
-	float gamma = 2.2f;
-	float invGamma = 1.0f / gamma;
-
-	for (int j = 0; j < Height; ++j)
+	for (sphere_scene& sceneObject : sceneObjects)
 	{
-		for (int i = 0; i < Width; ++i)
-		{
-			// ---------------------------------------------------
-			// --- Implement your code here to generate the image
-			// ---------------------------------------------------
+		sceneObject.clear();
+		sceneObject.create_scene();
+	}
 
-			//create Ray CameraCenter to Pixel(i,j)
-			Ray* ray = camera.getRay(i, j);
-			//result of Pixel color
-			vec3 color = scene.trace(ray, 0.0f, INT_MAX);
+	// 1. Model Transform
+	//mat4 model = translate(mat4(1.0f), vec3(0, 0, -7)) * scale(mat4(1.0f), vec3(2.0f));
 
-			// Apply gamma correction
-			color.r = pow(color.r, invGamma);
-			color.g = pow(color.g, invGamma);
-			color.b = pow(color.b, invGamma);
+	// 2. View Transform (Identity)
+	mat4 view = camera.getViewMatrix();
 
-			// set the color
-			OutputImage.push_back(color.x); // R
-			OutputImage.push_back(color.y); // G
-			OutputImage.push_back(color.z); // B
+	// 3. Perspective Projection (사용자 정의)
+	// 직접 만든 Perspective 행렬 (OpenGL 호환 버전)
+	mat4 proj = camera.getProjectionMatrix();
+
+	mat4 VP = proj * view;
+
+	for (sphere_scene& sceneObject : sceneObjects) {
+		mat4 model = sceneObject.get_model_transform();	
+		mat4 MVP = VP * model;
+		for (int i = 0; i < sceneObject.gNumTriangles; ++i) {
+
+			vec3 v0, v1, v2;
+			vec3 screen0, screen1, screen2;
+			float invW0, invW1, invW2;
+
+			//삼각형 점 좌표, 화면 좌표를 가져온다
+			sceneObject.process_triangle(MVP, model, Width, Height, &v0, &v1, &v2, &screen0, &screen1, &screen2, &invW0, &invW1, &invW2, i);
+
+			//절두체 체크
+			if (camera.isInFrustum(v0, v1, v2) == false) {
+				continue;
+			}
+
+			//back face culling
+			vec3 faceNormal = normalize(cross(v1 - v0, v2 - v0));
+			vec3 center = (v0 + v1 + v2) / 3.0f;
+			vec3 viewDir = normalize(camera.e - center);
+
+			if (dot(faceNormal, viewDir) < 0) {
+				continue; // back-face culling
+			}
+			//레스터링
+			rasterize_triangle(screen0, screen1, screen2, v0, v1, v2, invW0, invW1, invW2, faceNormal, light, sceneObject);
 		}
 	}
+
+
+
+	//for (int j = 0; j < Height; ++j) 
+	//{
+	//	for (int i = 0; i < Width; ++i) 
+	//	{
+	//		// ---------------------------------------------------
+	//		// --- Implement your code here to generate the image
+	//		// ---------------------------------------------------
+	//	}
+	//}
 }
 
 
