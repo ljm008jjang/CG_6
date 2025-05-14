@@ -30,6 +30,10 @@ Play "Local Windows Debugger"
 
 ![image](https://github.com/user-attachments/assets/9a435ea5-9ba9-46e0-9fa5-d4852fcf01e6)
 
+I don't know why, but if you failed then change target platform to Win32
+![image](https://github.com/user-attachments/assets/58507323-52a9-47d2-8652-2707200e08ba)
+
+
 Result Picture:
 result picture included in root folder
 
