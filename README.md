@@ -1,25 +1,18 @@
 Compilation:
-Sequence of rendering.
-make MVP matrix, then calculate position of each triangle's world position and screen position
-and check is in frustum, and back-face culling, finally do raterizing.
+Q1.Implement Flat shading in function rasterize_triangle
+Set color by triangle
+![image](https://github.com/user-attachments/assets/412d01ef-24a5-4093-af89-0f6d5875db3f)
 
-![image](https://github.com/user-attachments/assets/b9f9e810-8124-4f96-bde4-f32c4e0438ef)
+Q2.Implement Gouraud shading 
+Set color by vertex using interpolate
+![image](https://github.com/user-attachments/assets/1b531b5d-5e18-4597-aa1d-b492fc0e3637)
 
-insert x,y,z to gVertexBuffer
+Q3.Implement Phong shading 
+Set color by pixel
+![image](https://github.com/user-attachments/assets/691c5b58-43d1-4fc6-bbac-bc736c7aac5d)
 
-![image](https://github.com/user-attachments/assets/7a8a629c-e4f5-4b81-9c12-f08e58bbe67d)
 
-code of make view, projection matrix and FrustrumCheck
 
-![image](https://github.com/user-attachments/assets/97caf3c2-e55d-4603-9e42-4ab8a390654a)
-
-code of calc triangle's world position and screen position.
-
-![image](https://github.com/user-attachments/assets/67ea3c1b-7ddc-421a-a12c-cbc9aa13c03b)
-
-The code is based on the course materials, but for the sake of code convenience, different code with the same meaning has been used in some parts.
-For a detailed explanation, please refer to the comments.
-![image](https://github.com/user-attachments/assets/3abb0ec2-9e53-4589-ab14-5dc5f50ed0b2)
 
 
 
@@ -27,6 +20,10 @@ Run instructions:
 Download files and run OpenglViewer.sln
 
 ![image](https://github.com/user-attachments/assets/00a6fa01-53a9-4d9e-a088-0ffd1c6aa84d)
+
+Select Project(Q1, Q2, Q3) and right-click and click "Set as Startup Projcect"
+
+![image](https://github.com/user-attachments/assets/33ae5757-9c17-438e-8d94-8ddd6d7cddf7)
 
 
 Play "Local Windows Debugger"
@@ -36,6 +33,14 @@ Play "Local Windows Debugger"
 Result Picture:
 result picture included in root folder
 
-![result](https://github.com/user-attachments/assets/f4684078-b21d-4a0d-8a4f-d62d012812ff)
+Q1
+![image](https://github.com/user-attachments/assets/d7f8abaa-d6b3-44d4-bb35-ae43e9ef8cc6)
+
+Q2
+![image](https://github.com/user-attachments/assets/6d7b3d49-704a-4d4e-aee3-fbe5a4b92c76)
+
+Q3
+![image](https://github.com/user-attachments/assets/51bbc8fb-76f5-45a4-85fb-97029ef57fb6)
+
 
 
