@@ -111,29 +111,6 @@ void rasterize_triangle(const vec3& screen0, const vec3& screen1, const vec3& sc
 	}
 
 
-
-	//vec3 point = (v0 + v1 + v2) / 3.0f;
-
-	//vec3 v = normalize(camera.e - point);  // view direction
-	//vec3 l = normalize(light.pos - point);  // light direction
-
-	//vec3 h = normalize(v + l);  // half vector
-
-	//// Phong shading
-	//vec3 La = sphere.Ka * 0.2f;
-	//vec3 Ld = sphere.Kd * light.illumination * std::max(0.0f, dot(normal, l));
-	//vec3 Ls = sphere.Ks * light.illumination * pow(std::max(0.0f, dot(normal, h)), float(sphere.p));
-
-	//vec3 result = La + Ld + Ls;
-
-	//float colorGamma = 2.2f;
-	//float invGamma = 1.0f / colorGamma;
-
-	//// Apply gamma correction
-	//result.r = pow(result.r, invGamma);
-	//result.g = pow(result.g, invGamma);
-	//result.b = pow(result.b, invGamma);
-
 	for (int y = minY; y <= maxY; ++y) {
 		for (int x = minX; x <= maxX; ++x) {
 			if (beta > 0 && gamma > 0 && beta + gamma < 1) {
